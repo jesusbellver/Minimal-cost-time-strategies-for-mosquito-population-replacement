@@ -1,0 +1,80 @@
+#p(T)=theta, T free
+
+from gekko import GEKKO
+import numpy as np
+import matplotlib.pyplot as plt  
+import scipy.integrate as integrate
+
+# initialize gekko
+m = GEKKO()
+
+#Parameters
+b10=1
+b20=0.9
+d1=0.27
+d2=0.3
+K=1
+sh=0.9
+theta=(1/sh)*(1-((d1*b20)/(d2*b10)))
+M=10
+alpha=0.01
+eps=0.01
+
+
+#Discretization of the problem
+nt = 301
+m.time = np.linspace(0,1,nt)
+
+#Functions
+def f(p):
+    return p*(1-p)*((d1*b20-d2*b10*(1-sh*p))/(b10*(1-p)*(1-sh*p)+b20*p))
+
+def g(p):
+    return (1/K)*((b10*(1-p)*(1-sh*p))/(b10*(1-p)*(1-sh*p)+b20*p))
+
+
+# Variables
+J = m.Var(value=0)
+p = m.Var(value=0)
+u = m.MV(value=0. , lb=0. , ub=M)
+u.STATUS = 1
+u.DCOST = 0.  #Default=0.00001
+finalpoint = np.zeros(nt) # mark final time point
+finalpoint[-1] = 1.0
+final = m.Param(value=finalpoint)
+tf = m.FV(value=1.0,lb=0.0001,ub=100.0) #final time
+tf.STATUS=1
+
+# Equations
+m.Equation(p.dt()==tf*(f(p)+u*g(p)))
+m.Equation(J.dt()==tf*u)
+m.Equation(p*final<=theta)
+m.Obj((1-alpha)*J*final+alpha*tf-(1./eps)*p*final) # Objective function
+
+
+#Solver
+m.options.IMODE = 6 # optimal control mode
+m.options.NODES = 4
+m.options.MV_TYPE = 1
+m.options.SOLVER = 3
+m.options.OTOL = 0.1
+m.solver_options = ['max_iter 6000']
+m.solve(disp=False) # solve
+
+
+
+#Plots and results
+tm=np.linspace(0,tf.value[0],nt)
+print("final time=",tf.value[0])
+print("final state=",p.value[-1])
+
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))  
+ax1.plot(tm,u.value,'r--',label=r'$u$')
+ax2.plot(tm,p.value,'b-',label=r'$p$')
+ax1.legend(loc='best')
+ax1.set_xlabel('Time')
+ax2.legend(loc='best')
+ax2.set_xlabel('Time')
+#plt.savefig('1DTfree.png', bbox_inches='tight')
+plt.show()
