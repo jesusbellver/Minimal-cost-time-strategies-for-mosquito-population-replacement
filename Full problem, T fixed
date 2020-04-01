@@ -1,0 +1,80 @@
+#2D system, T fixed
+
+from gekko import GEKKO
+import numpy as np
+import matplotlib.pyplot as plt  
+import scipy.integrate as integrate
+
+# initialize gekko
+m = GEKKO()
+
+#Parameters
+b1=11.2
+b2=10.1
+d1=0.04
+d2=0.044
+K=5106./(1-(d1/b1))
+sh=0.9
+n2eq=K*(1-(d2/b2))
+M=112
+T=195 #210 #250
+eps=0.0001
+
+
+#Discretization of the problem
+nt = 301
+m.time = np.linspace(0,T,nt)
+
+
+# Variables
+J = m.Var(value=0.)
+n1 = m.Var(value=K*(1-(d1/b1)))
+n2 =m.Var(value=0.)
+u = m.MV(value=0, lb=0,ub=M)
+u.STATUS = 1
+#u.DCOST = 0
+finalpoint = np.zeros(nt) # mark final time point
+finalpoint[-1] = 1.0
+final = m.Param(value=finalpoint)
+
+
+
+# Equations
+m.Equation(n1.dt()==b1*n1*(1-sh*(n2/(n1+n2)))*(1-((n1+n2)/K))-d1*n1)
+m.Equation(n2.dt()==b2*n2*(1-((n1+n2)/K))-d2*n2+u)
+m.Equation(J.dt()==u)
+m.Obj(J*final+(1/eps)*((10-n1*final)**2+(10+n2*final-n2eq)**2)) # Objective function
+
+
+#Solver
+m.options.IMODE = 6 # optimal control mode
+m.options.NODES = 4
+m.options.MV_TYPE = 1
+m.options.SOLVER = 3
+m.options.OTOL = 0.1
+m.solver_options = ['max_iter 6000']
+m.solve(disp=False) # solve
+
+
+
+
+#Plots and results
+
+print("Final state n1=",n1.value[-1])
+print("Final state n2=",n2.value[-1])
+print("Equilibrium state state n2=",n2eq)
+print("Cost=",J.value[-1])
+print("Penalization=",(1/eps)*((n1.value[-1])**2+(n2.value[-1]-n2eq)**2))
+print("Distance to the eq^2=",((n1.value[-1])**2+(n2.value[-1]-n2eq)**2))
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))  
+ax1.plot(m.time,n1.value,'b-',label=r'$n1$')
+ax1.plot(m.time,n2.value,'r-',label=r'$n2$')
+ax2.plot(m.time,u.value,'k--',label=r'$u$')
+ax1.legend(loc='best')
+ax1.set_xlabel('Time')
+ax2.legend(loc='best')
+ax2.set_xlabel('Time')
+plt.rcParams['font.size'] = 15
+#plt.savefig('2DTfixed250_1010.png', bbox_inches='tight')
+plt.show()
