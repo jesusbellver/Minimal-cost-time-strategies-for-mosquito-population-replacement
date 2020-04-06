@@ -46,7 +46,7 @@ tf.STATUS=1
 m.Equation(n1.dt()==tf*(b1*n1*(1-sh*(n2/(n1+n2)))*(1-((n1+n2)/K))-d1*n1))
 m.Equation(n2.dt()==tf*(b2*n2*(1-((n1+n2)/K))-d2*n2+u))
 m.Equation(J.dt()==tf*u)
-m.Obj((1-alpha)*J*final+alpha*tf+(1/eps)*((10-n1*final)**2+(10+n2*final-n2eq)**2)) # Objective function
+m.Obj((1-alpha)*J*final+alpha*tf+(1/eps)*m.max2(m.max2((n1*final-10),(n2eq-10-n2*final)),0)) # Objective function
 
 #Solver
 m.options.IMODE = 6 # optimal control mode
